@@ -3,16 +3,99 @@ import numpy as np
 import math
 import os, sys
 
-top="/Users/pbuslaev/work/sim/2000_fo_aa/fo_oriented.pdb"
-traj="/Users/pbuslaev/work/sim/2000_fo_aa/fo_oriented.pdb"
+def load_traj(traj_file, top_file):
+	mol = mda.Universe(top_file,traj_file)
+	print(mol)
+	return mol
 
-mol = mda.Universe(top,traj)
-sel1=mol.select_atoms("resid 100 and segid A and name N")
-sel2=mol.select_atoms("resid 100 and segid A and name CA")
-sel3=mol.select_atoms("resid 100 and segid A and name C")
-sel4=mol.select_atoms("resid 101 and segid A and name N")
-r1=sel1.positions
-r2=sel2.positions
-r3=sel3.positions
-r4=sel4.positions
-print(mda.lib.distances.calc_dihedrals(r1,r2,r3,r4))
+def calc_dihed(r):
+	return mda.lib.distances.calc_dihedrals(r[0],r[1],r[2],r[3])
+
+def parseDihedFile(file,traj):
+	diheds = []
+	with open(file) as f:
+		for line in f:
+			# for each line from the input file select atoms and 
+			# calculate dihed for the trajectory
+			for ts in traj.trajectory:
+				atoms = traj.select_atoms("name " + line)
+				po = np.array(np.split(atoms.positions,atoms.positions.shape[0]//4))
+				po1=np.swapaxes(po,0,1)
+				dihed = np.concatenate(calc_dihed(po1),axis=None)
+				
+				# Append calculated dihedrals to the diheds
+				diheds.append(dihed)
+				
+	diheds=np.concatenate(np.array(diheds),axis=None)
+	np.savetxt("diheds.txt",diheds)
+
+class Option:
+    def __init__(self,func=str,num=1,default=None,description=""):
+        self.func        = func
+        self.num         = num
+        self.value       = default
+        self.description = description
+    def __nonzero__(self): 
+        return self.value != None
+    def __str__(self):
+        return self.value and str(self.value) or ""
+    def setvalue(self,v):
+        if len(v) == 1:
+            self.value = self.func(v[0])
+        elif isinstance(v,str):
+        	self.value = self.func(v)
+        else:
+        	self.value = [ self.func(i) for i in v ]
+
+def main(args):
+
+	options = [
+	# options for concat feature
+	"Input/output options",
+	("-f", Option(str, 1, None, "Input trajectory file (.xtc, .trr, ...)")),
+	("-t", Option(str, 1, None, "Input topology file (.pdb, .gro, ...)")),
+	("-l", Option(str, 1, None, "Lipid type = resname")),
+	("-di", Option(str, 1, None, "List of dihedrals"))
+	]
+
+	# if the user asks for help: pcalipids.py concat -h
+	if (len(args)>0 and (args[0] == '-h' or args[0] == '--help')) or len(args)==0:
+		print("\n",__file__[__file__.rfind('/')+1:])
+		for thing in options: # print all options for selected feature
+			print(type(thing) != str and "%10s: %s"%(thing[0],thing[1].description) or thing)
+		print()
+		sys.exit()
+
+	options = dict([i for i in options if not type(i) == str])
+
+	print(args)
+	while args:
+		ar = args.pop(0) # choose argument
+		if options[ar].num == -1:
+			listOfInputs = ""
+			while args:
+				ar1 = args.pop(0)
+				if ar1 in list(options.keys()):
+					options[ar].setvalue(listOfInputs)
+					args.insert(0,ar1)
+					break
+				else:
+					listOfInputs += (ar1+" ")
+			options[ar].setvalue(listOfInputs)
+		else:
+			options[ar].setvalue([args.pop(0) for i in range(options[ar].num)]) # set value
+
+	if not options["-f"].value or not options["-t"].value or not options["-l"].value:
+		print("Trajectory, structure, and the lipid resname have to be provided")
+		return
+	
+	traj = load_traj(options["-f"].value,\
+					 options["-t"].value)
+
+	if options["-di"].value:
+		parseDihedFile(options["-di"].value, traj)
+
+	
+if __name__ == '__main__':
+	args = sys.argv[1:]
+	main(args)
