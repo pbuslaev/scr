@@ -15,19 +15,32 @@ def parseDihedFile(file,traj):
 	diheds = []
 	with open(file) as f:
 		for line in f:
+			dihedl = []
+			names=line.split()
 			# for each line from the input file select atoms and 
 			# calculate dihed for the trajectory
 			for ts in traj.trajectory:
-				atoms = traj.select_atoms("name " + line)
-				po = np.array(np.split(atoms.positions,atoms.positions.shape[0]//4))
-				po1=np.swapaxes(po,0,1)
-				dihed = np.concatenate(calc_dihed(po1),axis=None)
+				#atoms = traj.select_atoms("name " + line)
+				a1 = traj.select_atoms("name "+names[0])
+				a2 = traj.select_atoms("name "+names[1])
+				a3 = traj.select_atoms("name "+names[2])
+				a4 = traj.select_atoms("name "+names[3])
+				
+				p1 = a1.positions
+				p2 = a2.positions
+				p3 = a3.positions
+				p4 = a4.positions
+				
+				#po = np.array(np.split(atoms.positions,atoms.positions.shape[0]//4))
+				#po1=np.swapaxes(po,0,1)
+				dihed = np.concatenate(mda.lib.distances.calc_dihedrals(p1,p2,p3,p4),axis=None)
 				
 				# Append calculated dihedrals to the diheds
-				diheds.append(dihed)
+				dihedl.append(dihed)
 				
-	diheds=np.concatenate(np.array(diheds),axis=None)
-	np.savetxt("diheds.txt",diheds)
+			diheds.append(np.concatenate(np.array(dihedl),axis=None))
+	
+	np.savetxt("diheds.txt",np.array(diheds))
 
 class Option:
     def __init__(self,func=str,num=1,default=None,description=""):
