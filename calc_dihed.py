@@ -12,35 +12,56 @@ def calc_dihed(r):
 	return mda.lib.distances.calc_dihedrals(r[0],r[1],r[2],r[3])
 
 def parseDihedFile(file,traj):
-	diheds = []
+	nl = []
 	with open(file) as f:
 		for line in f:
-			dihedl = []
 			names=line.split()
+			nl.append(names)
 			# for each line from the input file select atoms and 
 			# calculate dihed for the trajectory
-			for ts in traj.trajectory:
-				#atoms = traj.select_atoms("name " + line)
-				a1 = traj.select_atoms("name "+names[0])
-				a2 = traj.select_atoms("name "+names[1])
-				a3 = traj.select_atoms("name "+names[2])
-				a4 = traj.select_atoms("name "+names[3])
+		
+	diheds = np.array([])
+	i=0
+	k=0
+
+	hists = np.zeros((len(nl),360))
+
+	for ts in traj.trajectory:
+		if k==0:
+			print(i)
+			i+=1
+			k+=1
+		elif k<50:
+			k+=1
+		elif k==50:
+			np.savetxt("diheds.txt",hists)
+			return
+			k=0
+		
+		namep = 0
+		for names in nl:
+		#atoms = traj.select_atoms("name " + line)
+			a1 = traj.select_atoms("name "+names[0])
+			a2 = traj.select_atoms("name "+names[1])
+			a3 = traj.select_atoms("name "+names[2])
+			a4 = traj.select_atoms("name "+names[3])
 				
-				p1 = a1.positions
-				p2 = a2.positions
-				p3 = a3.positions
-				p4 = a4.positions
+			p1 = a1.positions
+			p2 = a2.positions
+			p3 = a3.positions
+			p4 = a4.positions
 				
 				#po = np.array(np.split(atoms.positions,atoms.positions.shape[0]//4))
 				#po1=np.swapaxes(po,0,1)
-				dihed = np.concatenate(mda.lib.distances.calc_dihedrals(p1,p2,p3,p4),axis=None)
-				
-				# Append calculated dihedrals to the diheds
-				dihedl.append(dihed)
-				
-			diheds.append(np.concatenate(np.array(dihedl),axis=None))
-	
-	np.savetxt("diheds.txt",np.array(diheds))
+			dihed = (180/math.pi) * np.concatenate(mda.lib.distances.calc_dihedrals(p1,p2,p3,p4),axis=None)
+			
+			hists[namep] += np.histogram(dihed,np.arange(-180,181,1))[0]
+			namep += 1
+			
+		if k == 1:
+			print(diheds.shape)
+
+	np.savetxt("diheds.txt",hists)
 
 class Option:
     def __init__(self,func=str,num=1,default=None,description=""):
