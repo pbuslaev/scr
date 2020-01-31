@@ -56,6 +56,7 @@ def parseDihedFile(file,traj):
 			hists[namep] += np.histogram(dihed,np.arange(-180,181,1))[0]
 			namep += 1
 			
+
 	np.savetxt("diheds.txt",hists)
 
 def parseDihedDynamicsFile(file,traj):
@@ -106,9 +107,6 @@ def parseDihedDynamicsFile(file,traj):
 				print(list(zip(ddih,ddihp)))
 
 	
-
-
-
 class Option:
     def __init__(self,func=str,num=1,default=None,description=""):
         self.func        = func
