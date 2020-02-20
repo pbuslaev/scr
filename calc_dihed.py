@@ -1,7 +1,13 @@
+import os, sys
+
+# For some systems that is important to give the direct path to mdanalysis
+#sys.path.append('/home/pbuslaev/.local/lib/python3.6/site-packages')
+
 import MDAnalysis as mda
 import numpy as np
 import math
-import os, sys
+import itertools as it
+from collections import Counter
 
 def load_traj(traj_file, top_file):
 	mol = mda.Universe(top_file,traj_file)
@@ -74,17 +80,24 @@ def parseDihedDynamicsFile(file,traj):
 
 	k = 0
 	ddihp = []
-	for ts in traj.trajectory:
-		print()
-		if k<=1:
-			k+=1
-		else:
-			return 0
 
-		
-		namep = 0
-		
-		for (names,limits) in zip(nl,ll):
+	transitions = []
+	for (names,limits) in zip(nl,ll):
+		ddihp.append(np.array([]))
+		#atoms = traj.select_atoms("name " + line)
+		transitions.append({})
+
+		coms = it.product(range(len(limits)),repeat=2)
+		for c in coms:
+			transitions[-1][c] = 0
+
+		print(len(ddihp))
+
+	print(len(transitions))
+
+	for ts in traj.trajectory:
+
+		for (names,limits,i) in zip(nl,ll,range(len(transitions))):
 		#atoms = traj.select_atoms("name " + line)
 			a1 = traj.select_atoms("name "+names[0])
 			a2 = traj.select_atoms("name "+names[1])
@@ -98,14 +111,27 @@ def parseDihedDynamicsFile(file,traj):
 				
 				#po = np.array(np.split(atoms.positions,atoms.positions.shape[0]//4))
 				#po1=np.swapaxes(po,0,1)
+
 			dihed = (180/math.pi) * np.concatenate(mda.lib.distances.calc_dihedrals(p1,p2,p3,p4),axis=None)
 			ddih = np.digitize(dihed,limits)
 			ddih[ddih==len(limits)] = 0
-			if len(ddihp) == 0:
-				ddihp = ddih
+#			print(ddihp)
+#			print(ddih)
+			if len(ddihp[i]) == 0:
+				ddihp[i] = ddih
 			else:
-				print(list(zip(ddih,ddihp)))
+				counts = Counter(list(zip(ddih,ddihp[i])))
+				for key,value in counts.items():
+					transitions[i][key] += value
 
+			
+	with open("transitions.txt","w") as f:
+		for tr in transitions:
+			for k,v in tr.items():
+				f.write("{} {} {}	".format(k[0],k[1],v))
+			f.write("\n")
+
+	return transitions
 	
 class Option:
     def __init__(self,func=str,num=1,default=None,description=""):
